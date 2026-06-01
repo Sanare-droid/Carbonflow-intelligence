@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users and Organizations
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  avatar            String?
+  role              Role     @default(USER)
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  
+  // Relations
+  createdProjects   Project[] @relation("createdBy")
+  updatedProjects   Project[] @relation("updatedBy")
+  documentCreated   Document[] @relation("createdBy")
+  documentUpdated   Document[] @relation("updatedBy")
+  metricsCreated    ImpactMetric[] @relation("createdBy")
+  creditsCreated    CarbonCredit[] @relation("createdBy")
+  auditLogs         AuditLog[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model Organization {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  description       String?
+  logo              String?
+  country           String?
+  industry          String?
+  
+  // Relations
+  users             User[]
+  projects          Project[]
+  credits           CarbonCredit[]
+  auditLogs         AuditLog[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Projects
+model Project {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  status            ProjectStatus @default(DRAFT)
+  type              String   // e.g., "Renewable Energy", "Reforestation"
+  location          String?
+  startDate         DateTime?
+  endDate           DateTime?
+  estimatedCO2e     Float    // Metric tons
+  verifiedCO2e      Float?
+  verificationStatus VerificationStatus @default(NOT_STARTED)
+  
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById       String
+  createdBy         User @relation("createdBy", fields: [createdById], references: [id])
+  updatedById       String
+  updatedBy         User @relation("updatedBy", fields: [updatedById], references: [id])
+  
+  // Relations
+  documents         Document[]
+  metrics           ImpactMetric[]
+  credits           CarbonCredit[]
+  risks             RiskAssessment[]
+  audits            AuditLog[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([verificationStatus])
+}
+
+// Documents
+model Document {
+  id                String   @id @default(cuid())
+  name              String
+  type              DocumentType
+  s3Key             String   // Path in S3
+  s3Url             String?  // Signed URL (cached)
+  fileSize          Int?
+  mimeType          String?
+  uploadedBy        String
+  
+  projectId         String
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById       String
+  createdBy         User @relation("createdBy", fields: [createdById], references: [id])
+  updatedById       String
+  updatedBy         User @relation("updatedBy", fields: [updatedById], references: [id])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// Impact Metrics
+model ImpactMetric {
+  id                String   @id @default(cuid())
+  metricType        String   // e.g., "CO2_REDUCTION", "TREES_PLANTED"
+  value             Float
+  unit              String   // e.g., "tonnes", "units"
+  measurementDate   DateTime
+  verifiedDate      DateTime?
+  isVerified        Boolean  @default(false)
+  
+  projectId         String
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById       String
+  createdBy         User @relation("createdBy", fields: [createdById], references: [id])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([metricType])
+}
+
+// Carbon Credits
+model CarbonCredit {
+  id                String   @id @default(cuid())
+  creditNumber      String   @unique
+  vintageYear       Int
+  quantity          Float    // Number of credits (1 credit = 1 tonne CO2e)
+  status            CreditStatus @default(PENDING)
+  issuanceDate      DateTime?
+  expiryDate        DateTime?
+  
+  projectId         String
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById       String
+  createdBy         User @relation("createdBy", fields: [createdById], references: [id])
+  
+  // Relations
+  trades            Trade[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+// Carbon Credit Trading
+model Trade {
+  id                String   @id @default(cuid())
+  creditId          String
+  credit            CarbonCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  fromOrganization  String
+  toOrganization    String
+  quantity          Float
+  pricePerCredit    Float?
+  totalPrice        Float?
+  status            TradeStatus @default(PENDING)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([creditId])
+}
+
+// Risk Assessment
+model RiskAssessment {
+  id                String   @id @default(cuid())
+  riskType          String   // e.g., "ENVIRONMENTAL", "MARKET", "REGULATORY"
+  severity          String   // HIGH, MEDIUM, LOW
+  description       String
+  mitigation        String?
+  
+  projectId         String
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// Audit Log
+model AuditLog {
+  id                String   @id @default(cuid())
+  action            String   // CREATE, UPDATE, DELETE, VIEW
+  entityType        String   // PROJECT, DOCUMENT, CREDIT
+  entityId          String
+  changes           String?  // JSON string of changes
+  
+  userId            String
+  user              User @relation(fields: [userId], references: [id])
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  projectId         String?
+  project           Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([projectId])
+}
+
+// Enums
+enum Role {
+  ADMIN
+  ORG_ADMIN
+  USER
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  VERIFIED
+  REJECTED
+}
+
+enum DocumentType {
+  PROJECT_PLAN
+  METHODOLOGY
+  MONITORING_REPORT
+  VERIFICATION_REPORT
+  AUDIT
+  CERTIFICATE
+  OTHER
+}
+
+enum CreditStatus {
+  PENDING
+  ISSUED
+  RETIRED
+  TRANSFERRED
+  CANCELLED
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
