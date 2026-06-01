@@ -167,3 +167,7 @@ export async function getCurrentUser() {
 
   return user;
 }
+
+export async function getAuthSession() {
+  return await getSession();
+}

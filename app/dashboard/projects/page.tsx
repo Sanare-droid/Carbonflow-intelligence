@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Plus, ArrowUpRight } from 'lucide-react';
-import { getSession } from '@/lib/auth';
+import { getAuthSession } from '@/app/actions/auth';
 import { getProjects } from '@/app/actions/projects';
 import { useEffect, useState as useStateClient } from 'react';
 
@@ -31,7 +31,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     const fetchProjects = async () => {
-      const session = await getSession();
+      const session = await getAuthSession();
       if (!session?.organizationId) {
         setLoading(false);
         return;

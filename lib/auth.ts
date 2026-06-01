@@ -1,28 +1,8 @@
-import jwt from 'jsonwebtoken';
+import 'server-only';
 import { cookies } from 'next/headers';
+import { createToken, verifyToken, type TokenPayload } from './auth-utils';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-
-export interface TokenPayload {
-  userId: string;
-  email: string;
-  organizationId?: string;
-  role: string;
-}
-
-export async function createToken(payload: TokenPayload): Promise<string> {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
-
-export async function verifyToken(token: string): Promise<TokenPayload | null> {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+export { createToken, verifyToken, type TokenPayload };
 
 export async function getSession(): Promise<TokenPayload | null> {
   try {
@@ -44,6 +24,7 @@ export async function setAuthCookie(token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
   });
 }
 
