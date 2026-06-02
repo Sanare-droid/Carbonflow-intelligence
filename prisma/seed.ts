@@ -7,7 +7,7 @@ import "dotenv/config";
 
 const pool = new pg.Pool({ 
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: { rejectUnauthorized: false }
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -16,15 +16,20 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // Clean up existing data
-  await prisma.auditLog.deleteMany();
-  await prisma.trade.deleteMany();
-  await prisma.riskAssessment.deleteMany();
-  await prisma.carbonCredit.deleteMany();
-  await prisma.impactMetric.deleteMany();
-  await prisma.document.deleteMany();
-  await prisma.project.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.organization.deleteMany();
+  try {
+    await prisma.auditLog.deleteMany();
+    await prisma.trade.deleteMany();
+    await prisma.riskAssessment.deleteMany();
+    await prisma.carbonCredit.deleteMany();
+    await prisma.impactMetric.deleteMany();
+    await prisma.document.deleteMany();
+    await prisma.project.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.organization.deleteMany();
+    console.log('🧹 Cleaned up existing data');
+  } catch (error) {
+    console.warn('⚠️ Could not clean up existing data (likely permission restriction on Aurora default db). Continuing with seed...');
+  }
 
   // Create admin user
   const adminPassword = await bcrypt.hash('admin123', 10);

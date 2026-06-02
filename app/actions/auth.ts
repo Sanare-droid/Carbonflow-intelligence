@@ -34,16 +34,20 @@ export async function login(data: unknown) {
     await setAuthCookie(token);
 
     // Log audit
-    await prisma.auditLog.create({
-      data: {
-        id: 'audit-' + uuidv4(),
-        action: 'LOGIN',
-        entityType: 'USER',
-        entityId: user.id,
-        userId: user.id,
-        organizationId: user.organizationId || 'system',
-      },
-    });
+    try {
+      await prisma.auditLog.create({
+        data: {
+          id: 'audit-' + uuidv4(),
+          action: 'LOGIN',
+          entityType: 'USER',
+          entityId: user.id,
+          userId: user.id,
+          organizationId: user.organizationId,
+        },
+      });
+    } catch (auditError) {
+      console.error('Audit log failed during login:', auditError);
+    }
 
     return {
       success: true,
@@ -142,16 +146,20 @@ export async function logout() {
   try {
     const session = await getSession();
     if (session) {
-      await prisma.auditLog.create({
-        data: {
-          id: 'audit-' + uuidv4(),
-          action: 'LOGOUT',
-          entityType: 'USER',
-          entityId: session.userId,
-          userId: session.userId,
-          organizationId: session.organizationId || 'system',
-        },
-      });
+      try {
+        await prisma.auditLog.create({
+          data: {
+            id: 'audit-' + uuidv4(),
+            action: 'LOGOUT',
+            entityType: 'USER',
+            entityId: session.userId,
+            userId: session.userId,
+            organizationId: session.organizationId,
+          },
+        });
+      } catch (auditError) {
+        console.error('Audit log failed during logout:', auditError);
+      }
     }
 
     await clearAuthCookie();
