@@ -1,8 +1,16 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../lib/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import "dotenv/config";
 
-const prisma = new PrismaClient();
+const pool = new pg.Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🌱 Seeding database...');

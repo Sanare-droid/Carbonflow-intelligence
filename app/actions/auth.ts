@@ -106,16 +106,21 @@ export async function register(data: unknown) {
     await setAuthCookie(token);
 
     // Log audit
-    await prisma.auditLog.create({
-      data: {
-        id: 'audit-' + uuidv4(),
-        action: 'CREATE',
-        entityType: 'USER',
-        entityId: user.id,
-        userId: user.id,
-        organizationId: org.id,
-      },
-    });
+    try {
+      await prisma.auditLog.create({
+        data: {
+          id: 'audit-' + uuidv4(),
+          action: 'CREATE',
+          entityType: 'USER',
+          entityId: user.id,
+          userId: user.id,
+          organizationId: org.id,
+        },
+      });
+    } catch (auditError) {
+      console.error('Audit log failed during registration:', auditError);
+      // Non-critical, continue
+    }
 
     return {
       success: true,
