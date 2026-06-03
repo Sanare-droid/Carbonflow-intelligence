@@ -10,10 +10,16 @@ export async function login(data: unknown) {
   try {
     const parsed = LoginSchema.parse(data);
     
-    const user = await prisma.user.findUnique({
-      where: { email: parsed.email },
-      include: { organization: true },
-    });
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: parsed.email },
+        include: { organization: true },
+      });
+    } catch (dbError) {
+      console.error('Database error during login:', dbError);
+      return { error: 'Database connection failed. Please check environment variables.' };
+    }
 
     if (!user) {
       return { error: 'Invalid email or password' };
@@ -61,7 +67,8 @@ export async function login(data: unknown) {
       },
     };
   } catch (error) {
-    return { error: 'Invalid input' };
+    console.error('Login validation error:', error);
+    return { error: 'Invalid input data' };
   }
 }
 
