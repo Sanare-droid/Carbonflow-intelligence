@@ -1,6 +1,6 @@
 'use client';
 
-import { User, LogOut, Bell } from 'lucide-react';
+import { User, LogOut, Bell, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,12 +11,41 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { logout, getCurrentUser } from '@/app/actions/auth';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface TopNavProps {
   breadcrumbs?: Array<{ label: string; href?: string }>;
 }
 
 export function TopNav({ breadcrumbs }: TopNavProps) {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await getCurrentUser();
+      if (userData) {
+        setUser(userData);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      router.push('/auth/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <header className="fixed top-0 left-64 right-0 h-16 border-b border-border bg-background flex items-center justify-between px-6 z-40">
       {/* Breadcrumbs */}
@@ -49,19 +78,18 @@ export function TopNav({ breadcrumbs }: TopNavProps) {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
         </Button>
 
-        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
-                J
+                {user?.firstName?.[0] || 'U'}
               </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="flex flex-col">
-              <span className="font-semibold">John Doe</span>
-              <span className="text-xs text-muted-foreground font-normal">john@carbonflow.com</span>
+              <span className="font-semibold">{user ? `${user.firstName} ${user.lastName}` : 'Loading...'}</span>
+              <span className="text-xs text-muted-foreground font-normal">{user?.email || ''}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer gap-2">
@@ -69,9 +97,17 @@ export function TopNav({ breadcrumbs }: TopNavProps) {
               <span>Profile</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer gap-2 text-destructive">
-              <LogOut className="w-4 h-4" />
-              <span>Sign out</span>
+            <DropdownMenuItem 
+              className="cursor-pointer gap-2 text-destructive"
+              onClick={handleSignOut}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogOut className="w-4 h-4" />
+              )}
+              <span>{isLoggingOut ? 'Signing out...' : 'Sign out'}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

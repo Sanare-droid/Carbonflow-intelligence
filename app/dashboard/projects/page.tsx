@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Plus, ArrowUpRight } from 'lucide-react';
+import { Search, Plus, ArrowUpRight, Loader2 } from 'lucide-react';
 import { getAuthSession } from '@/app/actions/auth';
-import { getProjects } from '@/app/actions/projects';
+import { createProject, getProjects } from '@/app/actions/projects';
 import { useEffect, useState as useStateClient } from 'react';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface Project {
   id: string;
@@ -24,28 +26,63 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useStateClient('');
   const [statusFilter, setStatusFilter] = useStateClient<string | null>(null);
   const [projects, setProjects] = useStateClient<Project[]>([]);
   const [loading, setLoading] = useStateClient(true);
+  const [isCreating, setIsCreating] = useStateClient(false);
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    const session = await getAuthSession();
+    if (!session?.organizationId) {
+      setLoading(false);
+      return;
+    }
+
+    const result = await getProjects(session.organizationId);
+    if (result.projects) {
+      setProjects(result.projects);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchProjects = async () => {
+    fetchProjects();
+  }, []);
+
+  const handleNewProject = async () => {
+    try {
+      setIsCreating(true);
       const session = await getAuthSession();
       if (!session?.organizationId) {
-        setLoading(false);
+        toast.error('You must be logged in to create a project');
         return;
       }
 
-      const result = await getProjects(session.organizationId);
-      if (result.projects) {
-        setProjects(result.projects);
-      }
-      setLoading(false);
-    };
+      const dummyProject = {
+        name: `New Project ${new Date().toLocaleDateString()}`,
+        type: 'Renewable Energy',
+        location: 'Stockholm, Sweden',
+        estimatedCO2e: 1000,
+        description: 'A new carbon offset project created from the dashboard.',
+      };
 
-    fetchProjects();
-  }, []);
+      const result = await createProject(dummyProject, session.organizationId);
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success('Project created successfully!');
+        fetchProjects(); // Refresh the list
+      }
+    } catch (error) {
+      toast.error('Failed to create project');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,8 +133,16 @@ export default function ProjectsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
           <p className="text-muted-foreground mt-1">Manage and track your carbon offset projects</p>
         </div>
-        <Button className="gap-2 bg-primary hover:bg-secondary">
-          <Plus className="w-4 h-4" />
+        <Button 
+          className="gap-2 bg-primary hover:bg-secondary"
+          onClick={handleNewProject}
+          disabled={isCreating}
+        >
+          {isCreating ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
           New Project
         </Button>
       </div>
